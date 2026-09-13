@@ -20,67 +20,105 @@ export default function UploadCard() {
   const photoInputRef = useRef(null);
   const [status, setStatus] = useState("idle"); // idle | loading | success | error
   const [message, setMessage] = useState("");
+  const [progress, setProgress] = useState(null); // { total, done, currentName }
 
-  async function handleFile(e, inputRef) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  async function processSingleFile(file) {
+    const base64 = await fileToBase64(file);
+    const mediaType = file.type || "application/pdf";
+
+    const res = await fetch("/api/parse-payslip", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileBase64: base64, mediaType }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "estrazione AI fallita");
+    }
+
+    const row = mapParsedToRow(data.parsed, {
+      filePath: null,
+      fileName: file.name,
+      fileType: mediaType,
+    });
+
+    await addPayslip(row, file, mediaType, file.name);
+  }
+
+  async function handleFiles(e, inputRef) {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
     setStatus("loading");
-    setMessage("Estrazione dati in corso con l'AI…");
+    setProgress({ total: files.length, done: 0, currentName: files[0].name });
 
-    try {
-      const base64 = await fileToBase64(file);
-      const mediaType = file.type || "application/pdf";
-
-      // 1. Estrazione dati tramite l'endpoint server (chiave Gemini segreta)
-      const res = await fetch("/api/parse-payslip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileBase64: base64, mediaType }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(`Estrazione AI fallita: ${data.error || "errore sconosciuto"}`);
+    const errori = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setProgress((p) => ({ ...p, currentName: file.name }));
+      try {
+        await processSingleFile(file);
+      } catch (err) {
+        errori.push({ name: file.name, message: err.message });
       }
-
-      // 2. Salvataggio in locale (IndexedDB): dati estratti + file originale
-      setMessage("Salvataggio in locale…");
-      const row = mapParsedToRow(data.parsed, {
-        filePath: null,
-        fileName: file.name,
-        fileType: mediaType,
-      });
-
-      const saved = await addPayslip(row, file, mediaType, file.name);
-
-      setStatus("success");
-      setMessage("Busta paga caricata, analizzata e salvata su questo dispositivo.");
-      void saved;
-    } catch (err) {
-      setStatus("error");
-      setMessage(err.message || "Errore imprevisto.");
-    } finally {
-      if (inputRef.current) inputRef.current.value = "";
-      setTimeout(() => {
-        setStatus("idle");
-        setMessage("");
-      }, 5000);
+      setProgress((p) => ({ ...p, done: p.done + 1 }));
     }
+
+    const successi = files.length - errori.length;
+    if (errori.length === 0) {
+      setStatus("success");
+      setMessage(
+        files.length === 1
+          ? "Busta paga caricata, analizzata e salvata su questo dispositivo."
+          : `${files.length} buste paga caricate e salvate su questo dispositivo.`
+      );
+    } else if (successi === 0) {
+      setStatus("error");
+      setMessage(`Nessun file caricato. Errore su ${errori.map((e) => e.name).join(", ")}.`);
+    } else {
+      setStatus("error");
+      setMessage(
+        `${successi} di ${files.length} caricate. Errore su: ${errori.map((e) => e.name).join(", ")}.`
+      );
+    }
+
+    if (inputRef.current) inputRef.current.value = "";
+    setTimeout(() => {
+      setStatus("idle");
+      setMessage("");
+      setProgress(null);
+    }, 6000);
   }
 
   if (status !== "idle") {
+    const pct = progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0;
     return (
       <div className="rounded-2xl border border-base-700 bg-base-900 p-4">
         <div className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-base-600 py-8 px-4 text-center">
           {status === "loading" && <Loader2 className="h-8 w-8 animate-spin text-accent" />}
           {status === "success" && <CheckCircle2 className="h-8 w-8 text-good" />}
           {status === "error" && <XCircle className="h-8 w-8 text-bad" />}
-          <span className="font-medium">
-            {status === "loading" && "Analisi in corso…"}
-            {status === "success" && "Fatto!"}
-            {status === "error" && "Errore"}
-          </span>
-          <span className="text-sm text-slate-400">{message}</span>
+
+          {status === "loading" && progress && progress.total > 1 ? (
+            <>
+              <span className="font-medium">
+                Elaborazione {progress.done + 1} di {progress.total}
+              </span>
+              <span className="text-sm text-slate-400 truncate max-w-full">{progress.currentName}</span>
+              <div className="w-full h-1.5 rounded-full bg-base-700 overflow-hidden mt-1">
+                <div className="h-full bg-accent transition-all" style={{ width: `${pct}%` }} />
+              </div>
+            </>
+          ) : (
+            <>
+              <span className="font-medium">
+                {status === "loading" && "Analisi in corso…"}
+                {status === "success" && "Fatto!"}
+                {status === "error" && "Errore"}
+              </span>
+              <span className="text-sm text-slate-400">{message}</span>
+            </>
+          )}
         </div>
       </div>
     );
@@ -92,7 +130,8 @@ export default function UploadCard() {
         ref={pdfInputRef}
         type="file"
         accept="application/pdf"
-        onChange={(e) => handleFile(e, pdfInputRef)}
+        multiple
+        onChange={(e) => handleFiles(e, pdfInputRef)}
         className="hidden"
         id="payslip-upload-pdf"
       />
@@ -100,12 +139,14 @@ export default function UploadCard() {
         ref={photoInputRef}
         type="file"
         accept="image/*"
-        onChange={(e) => handleFile(e, photoInputRef)}
+        multiple
+        onChange={(e) => handleFiles(e, photoInputRef)}
         className="hidden"
         id="payslip-upload-photo"
       />
 
-      <p className="text-sm font-medium text-slate-300 mb-3 text-center">Carica busta paga</p>
+      <p className="text-sm font-medium text-slate-300 mb-1 text-center">Carica busta paga</p>
+      <p className="text-xs text-slate-500 mb-3 text-center">Puoi selezionare più file insieme</p>
 
       <div className="grid grid-cols-2 gap-3">
         <label
@@ -114,7 +155,7 @@ export default function UploadCard() {
         >
           <FileText className="h-7 w-7 text-accent" />
           <span className="font-medium text-sm">File PDF</span>
-          <span className="text-xs text-slate-400">Scelto dai tuoi file</span>
+          <span className="text-xs text-slate-400">Anche più di uno</span>
         </label>
 
         <label
@@ -123,7 +164,7 @@ export default function UploadCard() {
         >
           <ImageIcon className="h-7 w-7 text-accent" />
           <span className="font-medium text-sm">Foto</span>
-          <span className="text-xs text-slate-400">Scatta o dalla galleria</span>
+          <span className="text-xs text-slate-400">Anche più di una</span>
         </label>
       </div>
     </div>

@@ -63,7 +63,12 @@ export function PayslipsProvider({ children }) {
   // Salva la riga estratta + il file originale (Blob) in IndexedDB.
   async function addPayslip(row, fileBlob, mediaType, fileName) {
     const saved = await addPayslipLocal(row, fileBlob, mediaType, fileName);
-    setAllPayslips((prev) => [...prev, saved]);
+    // Riordina sempre per anno/mese dopo l'inserimento: senza questo, una
+    // busta caricata "fuori ordine" finirebbe in fondo alla lista e
+    // sfalserebbe grafici e KPI che si aspettano l'ordine cronologico.
+    setAllPayslips((prev) =>
+      [...prev, saved].sort((a, b) => (a.anno - b.anno) || (a.mese - b.mese))
+    );
     if (saved?.anno && selectedYear !== "all" && saved.anno !== selectedYear) {
       setSelectedYear(saved.anno);
     }

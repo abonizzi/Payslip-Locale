@@ -27,28 +27,34 @@ Se in futuro servisse la sincronizzazione multi-dispositivo con dati persistenti
 
    > ⚠️ **Nota sulla privacy**: con la chiave gratuita, Google può usare i contenuti che invii (le buste paga) per migliorare i propri modelli. Se questo non va bene per te o per chi proverà l'app, attiva la fatturazione su Google AI Studio (il costo resta comunque minimo) prima di condividere il link.
 
-## 2. Sviluppo locale
+## 2. Chiave API Resend (per le Segnalazioni, gratuita)
+
+1. Vai su [resend.com](https://resend.com) e crea un account gratuito
+2. **API Keys** → **Create API Key**, copiala
+3. Serve solo per il pulsante "Invia segnalazione" nelle Impostazioni: senza questa chiave, quel form non funziona (il resto dell'app funziona comunque)
+4. Le email partono dal mittente di test `onboarding@resend.dev`, che non richiede la verifica di un dominio proprio
+
+## 3. Sviluppo locale
 
 ```bash
 npm install
-cp .env.example .env.local   # inserisci GEMINI_API_KEY
+cp .env.example .env.local   # inserisci GEMINI_API_KEY (e RESEND_API_KEY se vuoi testare le Segnalazioni)
 npm run dev
 ```
 
 Apri `http://localhost:3000`.
 
-## 3. Deploy gratuito su Netlify
+## 4. Deploy gratuito su Netlify
 
 ### Da GitHub (consigliata)
 1. Crea un repository su GitHub e carica tutti i file di questo progetto
 2. Su [app.netlify.com](https://app.netlify.com) → **Add new site > Import an existing project** → collega GitHub e seleziona il repo (Netlify riconosce Next.js automaticamente grazie a `netlify.toml`)
 3. Prima del deploy, vai su **Site configuration > Environment variables** e aggiungi:
 
-   | Variabile | Valore |
-   |---|---|
-   | `GEMINI_API_KEY` | la tua chiave Gemini |
-
-   È l'**unica** variabile richiesta.
+   | Variabile | Obbligatoria? | Valore |
+   |---|---|---|
+   | `GEMINI_API_KEY` | Sì | la tua chiave Gemini |
+   | `RESEND_API_KEY` | Solo per le Segnalazioni | la tua chiave Resend |
 4. Avvia il deploy
 
 ### Da CLI (richiede Node.js in locale)
@@ -57,10 +63,11 @@ npm install -g netlify-cli
 netlify login
 netlify init
 netlify env:set GEMINI_API_KEY xxxxxxxx...
+netlify env:set RESEND_API_KEY re_xxxxxxxx...
 netlify deploy --prod
 ```
 
-## 4. Condividerla con gli amici
+## 5. Condividerla con gli amici
 
 Basta mandare il link Netlify (es. `https://tuo-sito.netlify.app`). Ognuno che lo apre:
 - Non deve creare nessun account
@@ -79,6 +86,10 @@ Stessa interfaccia della versione completa:
 - **Menu anno** in alto a destra: filtra tutta l'app per anno
 - **Eliminazione** busta paga dal dettaglio
 - **Esporta backup** ed **Installazione PWA** dalle Impostazioni
+- **Caricamento multiplo**: seleziona più PDF o foto insieme, l'app li elabora uno alla volta con barra di avanzamento
+- **Segnalazioni**: form nelle Impostazioni per mandare suggerimenti/problemi via email
+- **Mensilità RAL configurabili** (12/13/14) dalle Impostazioni
+- **Proiezione Ferie/ROL a fine anno**: riquadro dedicato nella pagina Ferie/ROL
 
 ## Struttura del progetto
 

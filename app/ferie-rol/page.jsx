@@ -1,18 +1,21 @@
 "use client";
 
-import { Palmtree, CalendarClock, Clock3, Layers } from "lucide-react";
+import { Palmtree, CalendarClock, Clock3, Layers, CalendarRange } from "lucide-react";
 import AppHeader from "@/components/AppHeader";
 import StatCard from "@/components/StatCard";
 import EmptyYearState from "@/components/EmptyYearState";
+import { Section, Row } from "@/components/InfoSection";
 import RateiBarChart from "@/components/charts/RateiBarChart";
 import SaldiTrendChart from "@/components/charts/SaldiTrendChart";
 import { usePayslips } from "@/context/PayslipsContext";
 import { formatOre, formatGiorni } from "@/lib/format";
 import { getLatestPayslip } from "@/lib/ral";
+import { calcProiezioneFineAnno } from "@/lib/ferieProjection";
 
 export default function FerieRolPage() {
   const { payslips, allPayslips, selectedYear, loading } = usePayslips();
   const latest = getLatestPayslip(payslips);
+  const proiezione = calcProiezioneFineAnno(payslips);
 
   const saldoFerie = latest?.saldi_ferie?.saldo_ore ?? null;
   const saldoRol = latest?.saldi_rol_par?.saldo_ore ?? null;
@@ -69,6 +72,43 @@ export default function FerieRolPage() {
 
           <RateiBarChart latestPayslip={latest} />
           <SaldiTrendChart payslips={payslips} />
+
+          {proiezione && proiezione.mesiRimanenti > 0 && (
+            <Section title={`Proiezione al 31 dicembre ${proiezione.anno}`}>
+              <Row
+                label="Mesi rimanenti considerati"
+                value={`${proiezione.mesiRimanenti} (da ${proiezione.anno})`}
+              />
+              <Row
+                label="Maturazione mensile Ferie"
+                value={formatOre(proiezione.ferie.maturatoMensile)}
+              />
+              <Row
+                label="Ferie proiettate al 31/12"
+                value={`${formatOre(proiezione.ferie.proiezione)} (${formatGiorni(proiezione.ferie.proiezione)})`}
+              />
+              <Row
+                label="Maturazione mensile ROL/PAR"
+                value={formatOre(proiezione.rol.maturatoMensile)}
+              />
+              <Row
+                label="ROL/PAR proiettati al 31/12"
+                value={`${formatOre(proiezione.rol.proiezione)} (${formatGiorni(proiezione.rol.proiezione)})`}
+              />
+              <Row
+                label="Totale combinato proiettato"
+                value={`${formatOre(proiezione.totaleProiezione)} (${formatGiorni(proiezione.totaleProiezione)})`}
+              />
+            </Section>
+          )}
+          {proiezione && proiezione.mesiRimanenti > 0 && (
+            <p className="text-xs text-slate-500 -mt-3 px-1 flex items-start gap-1.5">
+              <CalendarRange className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+              Proiezione basata sulla maturazione dell'ultima busta caricata, assumendo che resti
+              costante nei mesi rimanenti e che non vengano prese ulteriori ferie/ROL da qui a fine
+              anno. Non tiene conto di eventuali cambi contrattuali.
+            </p>
+          )}
         </>
       )}
     </main>

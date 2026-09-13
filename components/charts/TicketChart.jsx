@@ -21,7 +21,8 @@ const TOOLTIP_STYLE = {
 export default function TicketChart({ payslips }) {
   if (!payslips || payslips.length === 0) return null;
 
-  const data = payslips.map((p) => ({
+  const ordinati = [...payslips].sort((a, b) => (a.anno - b.anno) || (a.mese - b.mese));
+  const data = ordinati.map((p) => ({
     periodo: periodoLabel(p),
     Valore: p.totale_ticket ?? 0,
   }));

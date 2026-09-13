@@ -11,13 +11,13 @@ import EmptyYearState from "@/components/EmptyYearState";
 import { useState } from "react";
 import { usePayslips } from "@/context/PayslipsContext";
 import { formatEuro } from "@/lib/format";
-import { calcLordoMedioMensile } from "@/lib/ral";
+import { calcLordoMedioMensile, getLatestPayslip } from "@/lib/ral";
 
 export default function Page() {
   const { payslips, allPayslips, selectedYear, loading } = usePayslips();
   const [selected, setSelected] = useState(null);
 
-  const ultima = payslips[payslips.length - 1];
+  const ultima = getLatestPayslip(payslips);
   const nettoMedio =
     payslips.length > 0
       ? payslips.reduce((sum, p) => sum + (p.netto_in_busta || 0), 0) / payslips.length
