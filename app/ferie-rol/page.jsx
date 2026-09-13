@@ -12,6 +12,12 @@ import { formatOre, formatGiorni } from "@/lib/format";
 import { getLatestPayslip } from "@/lib/ral";
 import { calcProiezioneFineAnno } from "@/lib/ferieProjection";
 
+const METODO_LABEL = {
+  esatto: "calcolo esatto",
+  media: "media su più mesi",
+  stima: "stima da gennaio",
+};
+
 export default function FerieRolPage() {
   const { payslips, allPayslips, selectedYear, loading } = usePayslips();
   const latest = getLatestPayslip(payslips);
@@ -80,7 +86,7 @@ export default function FerieRolPage() {
                 value={`${proiezione.mesiRimanenti} (da ${proiezione.anno})`}
               />
               <Row
-                label="Maturazione mensile Ferie"
+                label={`Maturazione mensile Ferie (${METODO_LABEL[proiezione.ferie.metodo]})`}
                 value={formatOre(proiezione.ferie.maturatoMensile)}
               />
               <Row
@@ -88,7 +94,7 @@ export default function FerieRolPage() {
                 value={`${formatOre(proiezione.ferie.proiezione)} (${formatGiorni(proiezione.ferie.proiezione)})`}
               />
               <Row
-                label="Maturazione mensile ROL/PAR"
+                label={`Maturazione mensile ROL/PAR (${METODO_LABEL[proiezione.rol.metodo]})`}
                 value={formatOre(proiezione.rol.maturatoMensile)}
               />
               <Row
@@ -104,9 +110,11 @@ export default function FerieRolPage() {
           {proiezione && proiezione.mesiRimanenti > 0 && (
             <p className="text-xs text-slate-500 -mt-3 px-1 flex items-start gap-1.5">
               <CalendarRange className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-              Proiezione basata sulla maturazione dell'ultima busta caricata, assumendo che resti
-              costante nei mesi rimanenti e che non vengano prese ulteriori ferie/ROL da qui a fine
-              anno. Non tiene conto di eventuali cambi contrattuali.
+              La maturazione mensile è isolata dalla differenza tra il "Maturato" (progressivo da
+              gennaio) dell'ultima busta e quello della busta del mese precedente disponibile. La
+              proiezione assume che questa maturazione resti costante nei mesi rimanenti e che non
+              vengano prese ulteriori ferie/ROL da qui a fine anno. Non tiene conto di eventuali
+              cambi contrattuali.
             </p>
           )}
         </>
